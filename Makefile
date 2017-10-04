@@ -10,9 +10,11 @@ default:
 all: clean compile
 
 compile:
+	$(CC) $(CFLAGS) -lxcb -fPIC -o lib.o -c lib.c
 	$(CC) $(CFLAGS) -I$(EMACS_ROOT)/src -fPIC -o module.o -c module.c
-	$(LD) -shared $(LDFLAGS) -o module.so module.o
+	$(LD) -shared $(LDFLAGS) -o module.so lib.o module.o
 	rm -f module.o
+	rm -f lib.o
 	mv module.so keyboard-grabber.so
 
 clean:
@@ -23,5 +25,5 @@ clean:
 	@rm -f module.so
 	@rm -f keyboard-grabber.so
 
-test-compile:
-	$(CC) $(CFLAGS) -Llibevdev-1.0/libevdev -levdev -o test test.c
+test-compile: clean
+	$(CC) $(CFLAGS) -lxcb -o test test.c

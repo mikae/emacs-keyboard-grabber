@@ -1,35 +1,23 @@
 (require 'keyboard-grabber)
-(kg-test)
-(let ((--evval        (list "RELEASED"
-                            "PRESSED "
-                            "REPEATED"))
-      (--device-index 2)
-      (--fd           nil)
-      (--counter      50)
-      (--vec          (make-vector 4 0))
-      (--type         nil)
-      (--code         nil)
-      (--value        nil))
-  (setq --fd (kg-open-device --device-index))
-  ;;(kg-grab-device --fd)
-  (while (> --counter 0)
-    (kg-read-event --fd --vec)
-    (setq --code  (elt --vec 1))
-    (setq --type  (elt --vec 2))
-    (setq --value (elt --vec 3))
 
-    (when (and (eq --type 1)
-               (>=  --value 0)
-               (<=  --value 2))
-      (message "%s 0x%x %d"
-               (elt --evval --value)
-               --code
-               --code)
-      (setq --counter (1- --counter)))
-    )
-  ;;(kg-ungrab-device --fd)
-  (kg-close-device  --fd))
+(defun my-key-event-hook ()
+  (let ((--event-type (elt kg-last-event 0))
+        (--key-code   (elt kg-last-event 1)))
+    (cond
+     ((eq --event-type
+          kg-key-press)
+      (message "Press: %d" --key-code))
+     ((eq --event-type
+          kg-key-release)
+      (message "Release: %d" --key-code))
+     (t nil))))
 
+(add-hook 'kg-key-event-hook
+          #'my-key-event-hook)
+
+(setq --conn (kg-open-connection))
+(kg-grab-keyboard --conn)
+(kg-run-event-loop --conn)
 
 ;; Local Variables:
 ;; make-backup-files: nil
