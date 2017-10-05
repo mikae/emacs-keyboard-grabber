@@ -245,19 +245,22 @@ void grab_keyboard(xcb_connection_t *dpy, xcb_window_t window) {
 
     xcb_generic_event_t *ev;
     xcb_key_press_event_t *kev;
-    while ((ev = xcb_wait_for_event(dpy))) {
-        switch (ev->response_type & ~0x80) {
-        case XCB_KEY_PRESS:
-            kev = (xcb_key_press_event_t*)ev;
-            printf("Pressed: %d\n", kev->detail);
-            break;
-        case XCB_KEY_RELEASE:
-            kev = (xcb_key_press_event_t*)ev;
-            printf("Released: %d\n", kev->detail);
-            break;
-        }
+    while (1) {
+        ev = xcb_wait_for_event(dpy);
+        if (ev) {
+            switch (ev->response_type & ~0x80) {
+            case XCB_KEY_PRESS:
+                kev = (xcb_key_press_event_t*)ev;
+                printf("Pressed: %d\n", kev->detail);
+                break;
+            case XCB_KEY_RELEASE:
+                kev = (xcb_key_press_event_t*)ev;
+                printf("Released: %d\n", kev->detail);
+                break;
+            }
 
-        free(ev);
+            free(ev);
+        }
     }
 }
 

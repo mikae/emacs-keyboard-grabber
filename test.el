@@ -1,4 +1,4 @@
-(require 'keyboard-grabber)
+;; (require 'keyboard-grabber)
 
 (defun my-key-event-hook ()
   (let ((--event-type (elt kg-last-event 0))
@@ -16,9 +16,39 @@
           #'my-key-event-hook)
 
 (setq --conn (kg-open-connection))
-(kg-grab-keyboard --conn)
-(kg-run-event-loop --conn)
 
-;; Local Variables:
-;; make-backup-files: nil
-;; End:
+(defun nyan ()
+  (kg-read-event --conn)
+  (deferred:$
+    (deferred:wait 10)
+    (deferred:nextc it
+      'nyan)))
+
+(deferred:$
+  (deferred:next
+    (lambda ()
+      (kg-grab-keyboard --conn)))
+  (deferred:nextc it
+    'nyan)
+  )
+
+;; (deferred:$
+;;   (deferred:next
+;;     (lambda () (message "deferred start")))
+;;   (deferred:nextc it
+;;     (lambda ()
+;;       (message "chain 1")
+;;       1))
+;;   (deferred:nextc it
+;;     (lambda (x)
+;;       (message "chain 2 : %s" x)))
+;;   (deferred:nextc it
+;;     (lambda ()
+;;       (read-minibuffer "Input a number: ")))
+;;   (deferred:nextc it
+;;     (lambda (x)
+;;       (message "Got the number : %i" x)))
+;;   (deferred:error it
+;;     (lambda (err)
+;;       (message "Wrong input : %s" err)))
+;;   )

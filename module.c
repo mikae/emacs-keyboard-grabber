@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <time.h>
 #include <emacs-module.h>
 #include "lib.h"
 
@@ -204,62 +205,60 @@ FreadEvent(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
     (void)n;
 
     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
-    ev = xcb_wait_for_event(state->dpy);
-
-    emacs_value vec = args[1];
-    switch (ev->response_type & ~0x80) {
-    case XCB_KEY_PRESS:
-        kev = (xcb_key_press_event_t*) ev;
-        env->vec_set(env, vec, 0, env->make_integer(env, 0));
-        env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
-        break;
-
-    case XCB_KEY_RELEASE:
-        kev = (xcb_key_press_event_t*) ev;
-        env->vec_set(env, vec, 0, env->make_integer(env, 1));
-        env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
-        break;
-    }
-
-    if (ev) {
-        free(ev);
-    }
-
-    return vec;
-};
-
-static emacs_value
-FrunEventLoop(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr)
-{
-    (void)ptr;
-    (void)n;
-
-    struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
-
     emacs_value vec = getVariable(env, "kg-last-event");
-    while ((ev = xcb_wait_for_event(state->dpy))) {
+
+    ev = xcb_poll_for_event(state->dpy);
+    if (ev) {
         switch (ev->response_type & ~0x80) {
         case XCB_KEY_PRESS:
             kev = (xcb_key_press_event_t*) ev;
             env->vec_set(env, vec, 0, env->make_integer(env, 0));
-            env->vec_set(env, vec, 1, env->make_integer(env, kev->detail));
+            env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
             runHooks(env, "kg-key-event-hook");
             break;
 
         case XCB_KEY_RELEASE:
             kev = (xcb_key_press_event_t*) ev;
             env->vec_set(env, vec, 0, env->make_integer(env, 1));
-            env->vec_set(env, vec, 1, env->make_integer(env, kev->detail));
+            env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
             runHooks(env, "kg-key-event-hook");
             break;
         }
-
-        if (ev) {
-            free(ev);
-        }
+        free(ev);
     }
+
     return Qt;
-}
+};
+
+/* static emacs_value */
+/* FrunEventLoop(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) */
+/* { */
+/*     (void)ptr; */
+/*     (void)n; */
+
+/*     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]); */
+/*     emacs_value vec = getVariable(env, "kg-last-event"); */
+/*     while ((ev = xcb_wait_for_event(state->dpy))) { */
+/*         if (ev) { */
+/*             switch (ev->response_type & ~0x80) { */
+/*             case XCB_KEY_PRESS: */
+/*                 kev = (xcb_key_press_event_t*) ev; */
+/*                 env->vec_set(env, vec, 0, env->make_integer(env, 0)); */
+/*                 env->vec_set(env, vec, 1, env->make_integer(env, kev->detail)); */
+/*                 runHooks(env, "kg-key-event-hook"); */
+/*                 break; */
+
+/*             case XCB_KEY_RELEASE: */
+/*                 kev = (xcb_key_press_event_t*) ev; */
+/*                 env->vec_set(env, vec, 0, env->make_integer(env, 1)); */
+/*                 env->vec_set(env, vec, 1, env->make_integer(env, kev->detail)); */
+/*                 runHooks(env, "kg-key-event-hook"); */
+/*                 break; */
+/*             } */
+/*             free(ev); */
+/*         } */
+/*     } */
+/* } */
 
 
 int
@@ -287,10 +286,10 @@ emacs_module_init (struct emacs_runtime *ert)
                  env->make_function(env, 1, 1, FungrabKeyboard, "doc", NULL));
     bindFunction(env,
                  "kg-read-event",
-                 env->make_function(env, 2, 2, FreadEvent, "doc", NULL));
-    bindFunction(env,
-                 "kg-run-event-loop",
-                 env->make_function(env, 1, 1, FrunEventLoop, "doc", NULL));
+                 env->make_function(env, 1, 1, FreadEvent, "doc", NULL));
+    /* bindFunction(env, */
+    /*              "kg-run-event-loop", */
+    /*              env->make_function(env, 1, 1, FrunEventLoop, "doc", NULL)); */
 
     // set variables
     setVariable(env,
