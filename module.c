@@ -225,9 +225,10 @@ FreadEvent(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
             break;
         }
         free(ev);
+        return Qt;
     }
 
-    return Qt;
+    return Qnil;
 };
 
 /* static emacs_value */
