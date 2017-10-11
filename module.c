@@ -88,21 +88,6 @@ provide(emacs_env *env, const char *feature)
     env->funcall (env, Qprovide, 1, args);
 }
 
-static void
-runHooks(emacs_env *env, const char *hooks)
-{
-    emacs_value Qhooks = env->intern(env, hooks);
-    emacs_value QrunHooks = env->intern(env, "run-hooks");
-    emacs_value args[] = { Qhooks };
-
-    env->funcall(env, QrunHooks, 1, args);
-}
-
-static void
-defineHook(emacs_env *env, const char *name) {
-    setVariable(env, name, Qnil);
-}
-
 static emacs_value
 makeVector(emacs_env *env, int length, int init) {
     emacs_value QmakeVector = env->intern(env, "make-vector");
@@ -214,53 +199,20 @@ FreadEvent(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
             kev = (xcb_key_press_event_t*) ev;
             env->vec_set(env, vec, 0, env->make_integer(env, 0));
             env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
-            runHooks(env, "kg-key-event-hook");
             break;
 
         case XCB_KEY_RELEASE:
             kev = (xcb_key_press_event_t*) ev;
             env->vec_set(env, vec, 0, env->make_integer(env, 1));
             env->vec_set(env, vec, 1, env->make_integer(env, (int)kev->detail));
-            runHooks(env, "kg-key-event-hook");
             break;
         }
         free(ev);
-        return Qt;
+        return vec;
     }
 
     return Qnil;
 };
-
-/* static emacs_value */
-/* FrunEventLoop(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) */
-/* { */
-/*     (void)ptr; */
-/*     (void)n; */
-
-/*     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]); */
-/*     emacs_value vec = getVariable(env, "kg-last-event"); */
-/*     while ((ev = xcb_wait_for_event(state->dpy))) { */
-/*         if (ev) { */
-/*             switch (ev->response_type & ~0x80) { */
-/*             case XCB_KEY_PRESS: */
-/*                 kev = (xcb_key_press_event_t*) ev; */
-/*                 env->vec_set(env, vec, 0, env->make_integer(env, 0)); */
-/*                 env->vec_set(env, vec, 1, env->make_integer(env, kev->detail)); */
-/*                 runHooks(env, "kg-key-event-hook"); */
-/*                 break; */
-
-/*             case XCB_KEY_RELEASE: */
-/*                 kev = (xcb_key_press_event_t*) ev; */
-/*                 env->vec_set(env, vec, 0, env->make_integer(env, 1)); */
-/*                 env->vec_set(env, vec, 1, env->make_integer(env, kev->detail)); */
-/*                 runHooks(env, "kg-key-event-hook"); */
-/*                 break; */
-/*             } */
-/*             free(ev); */
-/*         } */
-/*     } */
-/* } */
-
 
 int
 emacs_module_init (struct emacs_runtime *ert)
@@ -305,9 +257,6 @@ emacs_module_init (struct emacs_runtime *ert)
     setVariable(env,
                 "kg-last-event",
                 makeVector(env, 2, 0));
-
-    // define hooks
-    defineHook(env, "kg-key-event-hook");
 
     // provide feature
     provide (env, "keyboard-grabber");
