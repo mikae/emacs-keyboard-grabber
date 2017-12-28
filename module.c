@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#include <emacs-module.h>
+#include "emacs-module.h"
 #include "lib.h"
 
 int plugin_is_GPL_compatible;
