@@ -13,7 +13,6 @@ int plugin_is_GPL_compatible;
 
 // Helper struct
 struct xcb_state {
-    xcb_connection_t *dpy;
     xcb_screen_t *screen;
     xcb_window_t window;
     pid_t pid;
@@ -33,7 +32,7 @@ fin_close_xcb_state(void *ptr)
 {
     if (ptr) {
         struct xcb_state* state = (struct xcb_state*) ptr;
-        xcb_disconnect(state->dpy);
+        close_xcb_connection();
         free(state);
     }
 }
@@ -113,20 +112,11 @@ FopenConnection(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
         return Qnil;
     }
 
-    // setup display
-    setup_display_and_screen(NULL, &(state->dpy), &(state->screen));
-    if (! state->dpy) {
-        free(state);
-        signal_error(env, "Can't connect to X-server");
-        return Qnil;
-    }
-
     // find Emacs' window
-    xcb_window_t* window_ptr = find_window_by_pid(state->dpy,
-                                                  state->screen->root,
-                                                  state->pid);
+    setup_display_and_screen(NULL);
+    xcb_window_t* window_ptr = find_window_by_pid_from_root(state->pid);
     if (! window_ptr) {
-        xcb_disconnect(state->dpy);
+        close_xcb_connection();
         free(state);
         signal_error(env, "Can't find Emacs window");
         return Qnil;
@@ -144,7 +134,7 @@ FcloseConnection(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
     (void)n;
 
     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
-    xcb_disconnect(state->dpy);
+    close_xcb_connection();
     free(state);
 
     return Qt;
@@ -156,14 +146,7 @@ FgrabKeyboard(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
     (void)n;
 
     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
-
-    xcb_grab_key(state->dpy,
-                 0,
-                 state->window,
-                 XCB_MOD_MASK_ANY,
-                 XCB_GRAB_ANY,
-                 XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-    xcb_flush(state->dpy);
+    grab_keyboard(state->window);
 
     return Qt;
 }
@@ -174,25 +157,19 @@ FungrabKeyboard(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
     (void)n;
 
     struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
+    ungrab_keyboard(state->window);
 
-        xcb_ungrab_key(state->dpy,
-                       XCB_GRAB_ANY,
-                       state->window,
-                       XCB_MOD_MASK_ANY);
-        xcb_flush(state->dpy);
-
-        return Qt;
-    }
+    return Qt;
+}
 
 static emacs_value
 FreadEvent(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
     (void)ptr;
     (void)n;
 
-    struct xcb_state *state = (struct xcb_state*)env->get_user_ptr(env, args[0]);
     emacs_value vec = getVariable(env, "kg-last-event");
 
-    ev = xcb_poll_for_event(state->dpy);
+    ev = read_xcb_event();
     if (ev) {
         switch (ev->response_type & ~0x80) {
         case XCB_KEY_PRESS:
@@ -217,14 +194,11 @@ FreadEvent(emacs_env *env, ptrdiff_t n, emacs_value *args, void *ptr) {
 int
 emacs_module_init (struct emacs_runtime *ert)
 {
-    // env
     emacs_env *env = ert->get_environment (ert);
 
-    // gather symbols
     Qnil = env->intern(env, "nil");
     Qt   = env->intern(env, "t");
 
-    // bind functions
     bindFunction(env,
                  "kg-open-connection",
                  env->make_function(env, 0, 0, FopenConnection, "doc", NULL));
@@ -239,12 +213,8 @@ emacs_module_init (struct emacs_runtime *ert)
                  env->make_function(env, 1, 1, FungrabKeyboard, "doc", NULL));
     bindFunction(env,
                  "kg-read-event",
-                 env->make_function(env, 1, 1, FreadEvent, "doc", NULL));
-    /* bindFunction(env, */
-    /*              "kg-run-event-loop", */
-    /*              env->make_function(env, 1, 1, FrunEventLoop, "doc", NULL)); */
+                 env->make_function(env, 0, 0, FreadEvent, "doc", NULL));
 
-    // set variables
     setVariable(env,
                 "kg-key-press",
                 env->make_integer(env, 0));
@@ -258,8 +228,7 @@ emacs_module_init (struct emacs_runtime *ert)
                 "kg-last-event",
                 makeVector(env, 2, 0));
 
-    // provide feature
-    provide (env, "keyboard-grabber");
+    provide(env, "keyboard-grabber");
 
     // loaded successfully
     return 0;
