@@ -8,12 +8,13 @@
 
 #include "lib.h"
 
-// module variables
+// -----------------------------------------------------------------------------
 static struct atom_cache_entry *atom_cache;
 static struct xcb_connection_t *xcb_connection;
 static xcb_screen_t *xcb_screen;
+static int screen_number;
 
-// prototypes
+// -----------------------------------------------------------------------------
 struct atom_cache_entry *
 get_or_create_atom_cache_entry(const char *name);
 
@@ -50,7 +51,13 @@ xcb_window_t*
 find_window_by_pid(xcb_window_t window,
                    const pid_t target_pid);
 
-// functions
+void
+setup_xcb_connection(const char *display_name);
+
+void
+setup_screen();
+
+// -----------------------------------------------------------------------------
 xcb_atom_t
 get_atom_by_name(const char *name)
 {
@@ -221,37 +228,39 @@ extract_pid(void* value) {
 void
 setup_display_and_screen(const char *display_name)
 {
-    int screen_number, i, err;
+    setup_xcb_connection(display_name);
+    setup_screen();
+}
 
+void
+setup_xcb_connection(const char *display_name) {
     xcb_connection = xcb_connect(display_name, &screen_number);
-    if ((err = xcb_connection_has_error (xcb_connection)) != 0) {
-        if (xcb_connection) {
-            xcb_disconnect(xcb_connection);
-        }
-        xcb_connection = NULL;
-        return;
-    }
+    int err = xcb_connection_has_error (xcb_connection);
 
-    /* find our screen */
+    if (err != 0) {
+        close_xcb_connection();
+    }
+}
+
+void
+setup_screen() {
+    int i;
+
     const xcb_setup_t *setup = xcb_get_setup(xcb_connection);
     xcb_screen_iterator_t screen_iter = xcb_setup_roots_iterator(setup);
     int screen_count = xcb_setup_roots_length(setup);
 
     if (screen_count <= screen_number) {
-        if (xcb_connection) {
-            xcb_disconnect(xcb_connection);
+        close_xcb_connection();
+    } else {
+        for (i = 0; i < screen_number; i++) {
+            xcb_screen_next(&screen_iter);
         }
-        xcb_connection = NULL;
-        xcb_screen = NULL;
-        return;
-    }
 
-    for (i = 0; i < screen_number; i++) {
-        xcb_screen_next(&screen_iter);
+        xcb_screen = screen_iter.data;
     }
-
-    xcb_screen = screen_iter.data;
 }
+
 
 xcb_window_t*
 find_window_by_pid_from_root(const pid_t target_pid) {

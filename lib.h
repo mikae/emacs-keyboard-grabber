@@ -46,5 +46,4 @@ grab_keyboard();
 void
 ungrab_keyboard();
 
-
 #endif

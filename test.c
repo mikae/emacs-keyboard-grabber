@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 
     int i;
     for(i = 0; i < 20; i++) {
-        ev = read_xcb_event();
+        ev = read_xcb_event_sync();
         if (ev) {
             switch (ev->response_type & ~0x80) {
             case XCB_KEY_PRESS:
@@ -90,7 +90,6 @@ int main(int argc, char** argv) {
             }
             free(ev);
         }
-        sleep(1);
     }
 
     close_xcb_connection();
